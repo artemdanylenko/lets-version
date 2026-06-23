@@ -98,6 +98,7 @@ export async function synchronizeBumps(
   saveExact: boolean,
   updatePeer: boolean,
   updateOptional: boolean,
+  skipUnsatisfiedDeps: boolean = false,
   cwd = appRootPath.toString(),
 ) {
   const fixedCWD = fixCWD(cwd);
@@ -156,6 +157,35 @@ export async function synchronizeBumps(
           const semverDetailsToUse = semverDetails ?? {};
           const { operator = '' } = semverDetailsToUse;
 
+          // If the caller has opted into "only cascade when the dependent was
+          // already in sync with the parent," short-circuit before touching
+          // the dependent. We check whether the parent's PREVIOUS version
+          // (`bump.from`) satisfies the dependent's currently declared range:
+          //
+          //   - If yes, the dependent was tracking the parent before this
+          //     bump and we let the cascade proceed (rewriting the spec to
+          //     the new version using the existing operator, as before).
+          //   - If no, the dependent had already drifted away from the
+          //     parent (e.g. it pins to an older version on purpose), so we
+          //     leave its package.json untouched and skip its cascaded bump.
+          //
+          // We intentionally do this only when there are real semver details
+          // to evaluate (i.e. not for `workspace:` / `catalog:` protocol-only
+          // specifiers, which we can't validate without resolution context),
+          // and we treat any spec that semver itself can't validate as a pass
+          // (so we don't accidentally drop updates due to weird ranges). We
+          // also pass through when `bump.from` is null (first publish), since
+          // there is no prior version to compare against.
+          if (skipUnsatisfiedDeps && semverDetails && actualDeclaredSemver && bump.from) {
+            let satisfies = true;
+            try {
+              satisfies = semver.satisfies(bump.from, actualDeclaredSemver, { includePrerelease: true });
+            } catch {
+              satisfies = true;
+            }
+            if (!satisfies) continue;
+          }
+
           let operatorTouse = operator;
 
           const useExactVersion =
@@ -204,6 +234,7 @@ export async function synchronizeBumps(
             saveExact,
             updatePeer,
             updateOptional,
+            skipUnsatisfiedDeps,
             fixedCWD,
           );
 

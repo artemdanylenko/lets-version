@@ -328,6 +328,87 @@ describe('dependencies.js tests', () => {
     }
   });
 
+  it("Should skip dependents that had already drifted from the parent's prior version when skipUnsatisfiedDeps is true", async () => {
+    // Fixture layout:
+    //   parent@1.0.0
+    //   tracking@1.0.0  -> parent: ^1.0.0  (in sync with parent's prior version)
+    //   pinned@1.0.0    -> parent: 0.9.0   (intentionally drifted, not satisfied by 1.0.0)
+    //
+    // We bump parent MAJOR (1.0.0 -> 2.0.0). With skipUnsatisfiedDeps=true,
+    // the satisfies check uses bump.from (= 1.0.0):
+    //   - tracking: satisfies('1.0.0', '^1.0.0') === true  -> cascade, becomes ^2.0.0
+    //   - pinned:   satisfies('1.0.0', '0.9.0')  === false -> skip, stays 0.9.0
+    const cwd = path.join(__dirname, 'test-skip-unsatisfied');
+    const packages = await getPackages(cwd);
+
+    expect(packages).toBeDefined();
+
+    const updatedDepName = 'parent';
+
+    const bumpTypeByPackageName: Map<string, BumpType> = new Map();
+    bumpTypeByPackageName.set(updatedDepName, BumpType.MAJOR);
+    const tagsForPackagesMap: Map<string, PublishTagInfo> = new Map();
+    const { bumps, packages: updatedPackages } = await getSynchronizedBumpsByPackage(
+      { cwd, skipUnsatisfiedDeps: true },
+      bumpTypeByPackageName,
+      packages,
+      tagsForPackagesMap,
+    );
+    expect(bumps).toBeDefined();
+
+    const bumpedNames = bumps.map(b => b.packageInfo.name).sort();
+    expect(bumpedNames).toEqual(['parent', 'tracking']);
+
+    const parentBump = bumps.find(b => b.packageInfo.name === 'parent') as BumpRecommendation;
+    expect(parentBump.from).toBe('1.0.0');
+    expect(parentBump.to).toBe('2.0.0');
+    expect(parentBump.type).toBe(BumpType.MAJOR);
+
+    const tracking = updatedPackages.find(p => p.name === 'tracking');
+    expect(tracking?.pkg.dependencies?.parent).toBe('^2.0.0');
+
+    const pinned = updatedPackages.find(p => p.name === 'pinned');
+    // pinned is left untouched; either it's not in the updatedPackages list,
+    // or its declared range is unchanged.
+    if (pinned) {
+      expect(pinned.pkg.dependencies?.parent).toBe('0.9.0');
+    }
+  });
+
+  it('Should still cascade in-sync dependents when skipUnsatisfiedDeps is true', async () => {
+    // Sanity check on the existing test1 fixture: every dependent declares
+    // `^1.0.0` for `d`, which is satisfied by d's prior 1.0.0, so a PATCH
+    // bump should still cascade through all four packages even with the
+    // flag enabled.
+    const cwd = path.join(__dirname, 'test1');
+    const packages = await getPackages(cwd);
+
+    expect(packages).toBeDefined();
+
+    const updatedDepName = 'd';
+
+    const bumpTypeByPackageName: Map<string, BumpType> = new Map();
+    bumpTypeByPackageName.set(updatedDepName, BumpType.PATCH);
+    const tagsForPackagesMap: Map<string, PublishTagInfo> = new Map();
+    const { bumps, packages: updatedPackages } = await getSynchronizedBumpsByPackage(
+      { cwd, skipUnsatisfiedDeps: true },
+      bumpTypeByPackageName,
+      packages,
+      tagsForPackagesMap,
+    );
+    expect(bumps).toBeDefined();
+
+    const names = bumps.map(b => b.packageInfo.name).sort();
+    expect(names).toEqual(['a', 'b', 'c', 'd']);
+
+    for (const updatedPkg of updatedPackages) {
+      if (updatedPkg.name === updatedDepName) continue;
+      const dRange = updatedPkg.pkg.dependencies?.d;
+      if (!dRange) continue;
+      expect(dRange).toBe('^1.0.1');
+    }
+  });
+
   it('Should ensure preids are treated as saveExact', async () => {
     const cwd = path.join(__dirname, 'test1');
     const packages = await getPackages(cwd);

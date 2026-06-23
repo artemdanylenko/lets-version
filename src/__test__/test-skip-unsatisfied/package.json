@@ -1,0 +1,7 @@
+{
+  "name": "test-skip-unsatisfied",
+  "workspaces": [
+    "./packages/*"
+  ],
+  "version": "1.0.0"
+}

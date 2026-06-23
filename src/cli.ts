@@ -160,6 +160,12 @@ const getSharedBumpArgs = (yargs: Argv) =>
       default: false,
       description: 'If true, will update any dependent "package.json#optionalDependencies" fields',
       type: 'boolean',
+    })
+    .option('skipUnsatisfiedDeps', {
+      default: false,
+      description:
+        "If true, only cascades a dependency bump into a dependent when that dependent was already in sync with the parent (i.e. the parent's previous version satisfied the dependent's currently declared range). Dependents that had drifted (e.g. intentionally pinned to an older version) are left alone. Useful for monorepos where some consumers intentionally lag behind their workspace siblings.",
+      type: 'boolean',
     });
 
 type GetSharedBumpArgsType = ArgumentsCamelCase<{
@@ -170,6 +176,7 @@ type GetSharedBumpArgsType = ArgumentsCamelCase<{
   forceAll: boolean;
   updatePeer: boolean;
   updateOptional: boolean;
+  skipUnsatisfiedDeps: boolean;
 }>;
 
 type ApplyBumpsArgsType = ArgumentsCamelCase<{
@@ -374,6 +381,7 @@ async function setupCLI() {
           preid: args.preid,
           releaseAs: args.releaseAs as ReleaseAsPresets,
           uniqify: args.uniqify,
+          skipUnsatisfiedDeps: args.skipUnsatisfiedDeps,
           updateOptional: args.updateOptional,
           updatePeer: args.updatePeer,
         });
@@ -481,6 +489,7 @@ async function setupCLI() {
           rollupChangelog: args.rollupChangelog,
           uniqify: args.uniqify,
           saveExact: args.saveExact,
+          skipUnsatisfiedDeps: args.skipUnsatisfiedDeps,
           updateOptional: args.updateOptional,
           updatePeer: args.updatePeer,
           yes: args.yes,

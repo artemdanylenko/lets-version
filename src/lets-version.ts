@@ -221,6 +221,7 @@ export interface GetRecommendedBumpsByPackageOpts extends Pick<GitCommitsSinceOp
   noFetchTags?: boolean;
   updatePeer?: boolean;
   updateOptional?: boolean;
+  skipUnsatisfiedDeps?: boolean;
   cwd?: string;
 }
 
@@ -353,6 +354,7 @@ export async function getSynchronizedBumpsByPackage(
     force = false,
     updatePeer = false,
     updateOptional = false,
+    skipUnsatisfiedDeps = false,
     preid = '',
     cwd = appRootPath.toString(),
     names,
@@ -398,6 +400,7 @@ export async function getSynchronizedBumpsByPackage(
     saveExact,
     updatePeer,
     updateOptional,
+    skipUnsatisfiedDeps,
     fixedCWD,
   );
 
@@ -448,6 +451,7 @@ export interface ApplyRecommendedBumpsByPackageOpts {
   yes?: boolean;
   updatePeer?: boolean;
   updateOptional?: boolean;
+  skipUnsatisfiedDeps?: boolean;
   noPush?: boolean;
   rollupChangelog?: boolean;
   noChangelog?: boolean;
@@ -486,6 +490,7 @@ export async function applyRecommendedBumpsByPackage(
     rollupChangelog = false,
     uniqify = false,
     saveExact = false,
+    skipUnsatisfiedDeps = false,
     updateOptional = false,
     updatePeer = false,
   } = opts ?? {};
@@ -520,6 +525,7 @@ export async function applyRecommendedBumpsByPackage(
     preid,
     uniqify,
     saveExact,
+    skipUnsatisfiedDeps,
     force,
     noFetchAll,
     noFetchTags,
